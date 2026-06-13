@@ -2,53 +2,39 @@ package main
 
 import (
 	"fmt"
-	"log"
-	"net/http"
 	"os"
 
-	"github.com/go-chi/chi"
-	"github.com/go-chi/cors"
-	"github.com/joho/godotenv"
+	"github.com/adishgithub/adips_backend/controllers"
+	"github.com/adishgithub/adips_backend/initializers"
+	"github.com/adishgithub/adips_backend/middleware"
+	"github.com/gin-gonic/gin"
 )
 
+func init() {
+	fmt.Println("⏳ Initializing the application...")
+	initializers.LoadEnvVariables()
+	fmt.Println("🌿 Environment variables loaded")
+	initializers.ConnectToDb()
+	initializers.SyncDatabase()
+	fmt.Println("🗄️  Database migrated")
+}
+
 func main() {
+	gin.SetMode(gin.ReleaseMode)
+	router := gin.Default()
 
-	godotenv.Load(".env")
+	router.GET("/ping", func(c *gin.Context) {
+		c.JSON(200, gin.H{
+			"message": "pong",
+		})
+	})
 
-	portString := os.Getenv("PORT")
+	router.POST("/signup", controllers.Signup)
+	router.POST("/login", controllers.Login)
+	router.POST("/logout", controllers.Logout)
+	router.GET("/validate", middleware.RequireAuth, controllers.Validate)
 
-	if portString == "" {
-		log.Fatal("PORT is not found in the environment")
-	}
+	fmt.Printf("🚀 Server is running on port %s\n", os.Getenv("PORT"))
 
-	router := chi.NewRouter()
-
-	router.Use(cors.Handler(cors.Options{
-		AllowedOrigins:   []string{"https://*", "http://*"},
-		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowedHeaders:   []string{"*"},
-		ExposedHeaders:   []string{"Link"},
-		AllowCredentials: false,
-		MaxAge:           300,
-	}))
-
-	v1router := chi.NewRouter()
-
-	v1router.Get("/healthz", handlerReadiness)
-	v1router.Get("/err", handlerErr)
-
-	router.Mount("/v1", v1router)
-
-	srv := &http.Server{
-		Handler: router,
-		Addr:    ":" + portString,
-	}
-
-	log.Printf("Server starting on port %v", portString)
-	err := srv.ListenAndServe()
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	fmt.Println("Port:", portString)
+	router.Run(":" + os.Getenv("PORT"))
 }
