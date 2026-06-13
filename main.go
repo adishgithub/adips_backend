@@ -28,6 +28,11 @@ func main() {
 			"message": "pong",
 		})
 	})
+	router.GET("/Healthz", func(c *gin.Context) {
+		c.JSON(200, gin.H{
+			"message": "I'm healthy",
+		})
+	})
 
 	router.POST("/signup", controllers.Signup)
 	router.POST("/login", controllers.Login)
