@@ -14,7 +14,7 @@ import (
 
 func Signup(c *gin.Context) {
 	var Body struct {
-		Username string `json:"username"`
+		Name     string `json:"name"`
 		Email    string `json:"email"`
 		Password string `json:"password"`
 	}
@@ -27,8 +27,8 @@ func Signup(c *gin.Context) {
 	}
 
 	// Validate required fields
-	if Body.Username == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Username is required"})
+	if Body.Name == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Name is required"})
 		return
 	}
 	if Body.Email == "" {
@@ -51,9 +51,9 @@ func Signup(c *gin.Context) {
 		return
 	}
 
-	// Check if username already exists
-	if err := initializers.DB.Where("username = ?", Body.Username).First(&existingUser).Error; err == nil {
-		c.JSON(http.StatusConflict, gin.H{"success": false, "message": "Username already taken"})
+	// Check if name already exists
+	if err := initializers.DB.Where("name = ?", Body.Name).First(&existingUser).Error; err == nil {
+		c.JSON(http.StatusConflict, gin.H{"success": false, "message": "Name already taken"})
 		return
 	}
 
@@ -65,7 +65,7 @@ func Signup(c *gin.Context) {
 	}
 
 	// Create user
-	user := models.User{Username: Body.Username, Email: Body.Email, Password: string(hashedPassword)}
+	user := models.User{Name: Body.Name, Email: Body.Email, Password: string(hashedPassword)}
 	result := initializers.DB.Create(&user)
 	if result.Error != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": result.Error.Error()})
@@ -76,9 +76,9 @@ func Signup(c *gin.Context) {
 		"success": true,
 		"message": "User created successfully",
 		"user": gin.H{
-			"id":       user.ID,
-			"username": user.Username,
-			"email":    user.Email,
+			"id":    user.ID,
+			"name":  user.Name,
+			"email": user.Email,
 		},
 	})
 }
