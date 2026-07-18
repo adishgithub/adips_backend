@@ -34,10 +34,18 @@ func main() {
 		})
 	})
 
+	// User routes
 	router.POST("/signup", controllers.Signup)
 	router.POST("/login", controllers.Login)
 	router.POST("/logout", controllers.Logout)
 	router.GET("/validate", middleware.RequireAuth, controllers.Validate)
+
+	// Transaction routes
+	router.POST("/transactions", middleware.RequireAuth, controllers.CreateTransaction)
+	router.GET("/transactions", middleware.RequireAuth, controllers.GetTransactions)
+	// router.GET("/transactions/:id", middleware.RequireAuth, controllers.GetTransactionByID)
+	// router.PUT("/transactions/:id", middleware.RequireAuth, controllers.UpdateTransaction)
+	// router.DELETE("/transactions/:id", middleware.RequireAuth, controllers.DeleteTransaction)
 
 	fmt.Printf("🚀 Server is running on port %s\n", os.Getenv("PORT"))
 

@@ -9,4 +9,5 @@ import (
 func SyncDatabase() {
 	fmt.Println("🗄️  Syncing database...")
 	DB.AutoMigrate(&models.User{})
+	DB.AutoMigrate(&models.Transaction{})
 }
