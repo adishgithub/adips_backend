@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/adishgithub/adips_backend/internal/dto"
+	"github.com/adishgithub/adips_backend/internal/models"
 	"github.com/adishgithub/adips_backend/internal/service"
 	"github.com/adishgithub/adips_backend/internal/utils"
 	"github.com/gin-gonic/gin"
@@ -55,7 +56,12 @@ func (h *UserHandler) Login(c *gin.Context) {
 }
 
 func (h *UserHandler) Validate(c *gin.Context) {
-	utils.Ok(c, "Authorized", c.MustGet("user"))
+	user := c.MustGet("user").(*models.User)
+	utils.Ok(c, "Authorized", dto.UserResponse{
+		ID:    user.ID,
+		Name:  user.Name,
+		Email: user.Email,
+	})
 }
 
 func (h *UserHandler) Logout(c *gin.Context) {
