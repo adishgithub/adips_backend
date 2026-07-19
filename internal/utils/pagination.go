@@ -1,11 +1,6 @@
 package utils
 
-import (
-	"math"
-	"strconv"
-
-	"github.com/gin-gonic/gin"
-)
+import "math"
 
 type Pagination struct {
 	Page         int   `json:"page"`
@@ -17,23 +12,20 @@ type Pagination struct {
 	HasPrev      bool  `json:"has_prev"`
 }
 
-func GetPagination(c *gin.Context) Pagination {
-
-	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
-
+// NewPagination builds a Pagination from already-parsed page/limit
+// values, clamping to sane bounds. Parsing raw query params is a
+// gin/HTTP concern and stays in the handler; this function is pure
+// so it's usable (and testable) from the service layer too.
+func NewPagination(page, limit int) Pagination {
 	if page < 1 {
 		page = 1
 	}
-
 	if limit < 1 {
 		limit = 10
 	}
-
 	if limit > 100 {
 		limit = 100
 	}
-
 	return Pagination{
 		Page:   page,
 		Limit:  limit,
@@ -42,13 +34,12 @@ func GetPagination(c *gin.Context) Pagination {
 }
 
 func BuildPagination(p Pagination, total int64) Pagination {
-
 	p.TotalRecords = total
-
 	p.TotalPages = int(math.Ceil(float64(total) / float64(p.Limit)))
-
+	if p.TotalPages == 0 {
+		p.TotalPages = 1
+	}
 	p.HasNext = p.Page < p.TotalPages
 	p.HasPrev = p.Page > 1
-
 	return p
 }
