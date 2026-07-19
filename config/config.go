@@ -37,7 +37,7 @@ func Load() *Config {
 		Port:        getEnv("PORT", "8080"),
 		Env:         getEnv("ENV", "development"),
 		DatabaseURL: os.Getenv("DB"),
-		JWTSecret:   os.Getenv("SECRET_KEY"),
+		JWTSecret:   os.Getenv("JWT_SECRET"),
 	}
 
 	expHours := getEnvAsInt("JWT_EXPIRATION_HOURS", 24*30)
@@ -66,7 +66,7 @@ func (c *Config) validate() error {
 		return fmt.Errorf("DB environment variable is required")
 	}
 	if c.JWTSecret == "" {
-		return fmt.Errorf("SECRET_KEY environment variable is required")
+		return fmt.Errorf("JWT_SECRET environment variable is required")
 	}
 	return nil
 }

@@ -74,7 +74,7 @@ Postgres via GORM. Each layer only knows about the one below it.
 ## Setup
 
 ```bash
-cp .env.example .env   # fill in DB / SECRET_KEY
+cp .env.example .env   # fill in DB / JWT_SECRET
 go mod tidy            # re-resolve go.sum for the new import paths
 go build ./...
 go run ./cmd/api

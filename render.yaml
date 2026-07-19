@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: adips-backend
+    runtime: go
+    plan: free
+    buildCommand: go build -o main ./cmd/api
+    startCommand: ./main
+    envVars:
+      - key: ENV
+        value: production
+      - key: DB
+        sync: false          # set manually in the Render dashboard (secret)
+      - key: JWT_SECRET
+        sync: false          # already set in the Render dashboard (secret)
+      - key: JWT_EXPIRATION_HOURS
+        value: "720"
