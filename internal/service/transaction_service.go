@@ -34,7 +34,7 @@ func (s *transactionService) Create(userID uint, req dto.CreateTransactionReques
 	tx := &models.Transaction{
 		UserID:          userID,
 		Amount:          req.Amount,
-		Type:            models.TransactionType(req.Type),
+		Type:            models.TransactionDirection(req.Type),
 		Category:        req.Category,
 		Description:     req.Description,
 		Status:          models.TransactionStatus(req.Status),
@@ -104,7 +104,7 @@ func (s *transactionService) Update(userID, txID uint, req dto.UpdateTransaction
 		tx.Amount = *req.Amount
 	}
 	if req.Type != nil {
-		tx.Type = models.TransactionType(*req.Type)
+		tx.Type = models.TransactionDirection(*req.Type)
 	}
 	if req.Category != nil {
 		tx.Category = *req.Category

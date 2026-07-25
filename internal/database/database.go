@@ -49,8 +49,18 @@ func Connect(cfg *config.Config) (*gorm.DB, error) {
 func Migrate(db *gorm.DB) error {
 	log.Println("🗄️  Syncing database schema...")
 
+	// Order matters for AutoMigrate foreign keys: UserSettings and
+	// TransactionType depend only on User; TransactionCategory
+	// depends on TransactionType; Transaction depends on both
+	// TransactionCategory and TransactionType once the cutover in
+	// plan §4/§6 ships (not yet — Transaction is unchanged here).
+	// GORM mostly infers this itself, but explicit ordering avoids
+	// surprises on a fresh DB.
 	if err := db.AutoMigrate(
 		&models.User{},
+		&models.UserSettings{},
+		&models.TransactionType{},
+		&models.TransactionCategory{},
 		&models.Transaction{},
 	); err != nil {
 		return fmt.Errorf("migration failed: %w", err)
