@@ -3,6 +3,7 @@ package service
 import (
 	"time"
 
+	"github.com/adishgithub/adips_backend/internal/constants"
 	"github.com/adishgithub/adips_backend/internal/dto"
 	"github.com/adishgithub/adips_backend/internal/models"
 	"github.com/adishgithub/adips_backend/internal/repository"
@@ -31,15 +32,29 @@ func NewTransactionService(repo repository.TransactionRepository) TransactionSer
 }
 
 func (s *transactionService) Create(userID uint, req dto.CreateTransactionRequest) (*dto.TransactionResponse, error) {
+	if !constants.ValidIconID(req.CategoryIconID) {
+		return nil, utils.ErrBadRequest("Invalid category_icon_id")
+	}
+	if !constants.ValidColorID(req.CategoryColorID) {
+		return nil, utils.ErrBadRequest("Invalid category_color_id")
+	}
+
+	txDate := time.Now()
+	if req.TransactionDate != nil {
+		txDate = *req.TransactionDate
+	}
+
 	tx := &models.Transaction{
 		UserID:          userID,
 		Amount:          req.Amount,
 		Type:            models.TransactionDirection(req.Type),
 		Category:        req.Category,
+		CategoryIconID:  req.CategoryIconID,
+		CategoryColorID: req.CategoryColorID,
 		Description:     req.Description,
 		Status:          models.TransactionStatus(req.Status),
 		PaymentMethod:   req.PaymentMethod,
-		TransactionDate: time.Now(),
+		TransactionDate: txDate,
 		Note:            req.Note,
 		Currency:        req.Currency,
 	}
@@ -109,6 +124,18 @@ func (s *transactionService) Update(userID, txID uint, req dto.UpdateTransaction
 	if req.Category != nil {
 		tx.Category = *req.Category
 	}
+	if req.CategoryIconID != nil {
+		if !constants.ValidIconID(*req.CategoryIconID) {
+			return nil, utils.ErrBadRequest("Invalid category_icon_id")
+		}
+		tx.CategoryIconID = *req.CategoryIconID
+	}
+	if req.CategoryColorID != nil {
+		if !constants.ValidColorID(*req.CategoryColorID) {
+			return nil, utils.ErrBadRequest("Invalid category_color_id")
+		}
+		tx.CategoryColorID = *req.CategoryColorID
+	}
 	if req.Description != nil {
 		tx.Description = *req.Description
 	}
@@ -117,6 +144,9 @@ func (s *transactionService) Update(userID, txID uint, req dto.UpdateTransaction
 	}
 	if req.PaymentMethod != nil {
 		tx.PaymentMethod = *req.PaymentMethod
+	}
+	if req.TransactionDate != nil {
+		tx.TransactionDate = *req.TransactionDate
 	}
 	if req.Note != nil {
 		tx.Note = *req.Note
@@ -158,6 +188,8 @@ func toTransactionResponse(tx *models.Transaction) dto.TransactionResponse {
 		Amount:          tx.Amount,
 		Type:            string(tx.Type),
 		Category:        tx.Category,
+		CategoryIconID:  tx.CategoryIconID,
+		CategoryColorID: tx.CategoryColorID,
 		Description:     tx.Description,
 		Status:          string(tx.Status),
 		PaymentMethod:   tx.PaymentMethod,

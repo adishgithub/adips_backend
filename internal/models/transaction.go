@@ -55,16 +55,26 @@ func (s TransactionStatus) Valid() bool {
 //     sort on the result set.
 type Transaction struct {
 	gorm.Model
-	UserID          uint                 `gorm:"not null;index:idx_user_date,priority:1" json:"user_id"`
-	Amount          float64              `gorm:"not null" json:"amount"`
-	Type            TransactionDirection `gorm:"type:varchar(10);not null;index" json:"type"`
-	Category        string               `gorm:"not null;index" json:"category"`
-	Description     string               `gorm:"not null" json:"description"`
-	Status          TransactionStatus    `gorm:"type:varchar(15);not null;index" json:"status"`
-	PaymentMethod   string               `gorm:"not null" json:"payment_method"`
-	TransactionDate time.Time            `gorm:"not null;index:idx_user_date,priority:2" json:"transaction_date"`
-	Note            string               `json:"note,omitempty"`
-	Currency        string               `gorm:"not null;size:3" json:"currency"`
+	UserID   uint                 `gorm:"not null;index:idx_user_date,priority:1" json:"user_id"`
+	Amount   float64              `gorm:"not null" json:"amount"`
+	Type     TransactionDirection `gorm:"type:varchar(10);not null;index" json:"type"`
+	Category string               `gorm:"not null;index" json:"category"`
+	// CategoryIconID/CategoryColorID are a denormalized *snapshot* of
+	// the TransactionCategory's icon/color at the moment this
+	// transaction was created — same reasoning as Category being a
+	// plain string instead of a foreign key (see comment above):
+	// editing or deleting the category later must never change how
+	// old transactions render. The Flutter category picker sends
+	// these alongside the category name since it already has them
+	// loaded from GET /categories.
+	CategoryIconID  int               `gorm:"not null;default:0" json:"category_icon_id"`
+	CategoryColorID int               `gorm:"not null;default:0" json:"category_color_id"`
+	Description     string            `gorm:"not null" json:"description"`
+	Status          TransactionStatus `gorm:"type:varchar(15);not null;index" json:"status"`
+	PaymentMethod   string            `gorm:"not null" json:"payment_method"`
+	TransactionDate time.Time         `gorm:"not null;index:idx_user_date,priority:2" json:"transaction_date"`
+	Note            string            `json:"note,omitempty"`
+	Currency        string            `gorm:"not null;size:3" json:"currency"`
 
 	// User is not eager-loaded by default (see repository); kept here
 	// so callers that explicitly Preload("User") can use it.

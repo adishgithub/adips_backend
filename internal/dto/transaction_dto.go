@@ -7,14 +7,22 @@ import "time"
 // never from client input, otherwise any logged-in user could create
 // transactions under someone else's account.
 type CreateTransactionRequest struct {
-	Amount        float64 `json:"amount" binding:"required,gt=0"`
-	Type          string  `json:"type" binding:"required,oneof=credit debit"`
-	Category      string  `json:"category" binding:"required"`
-	Description   string  `json:"description" binding:"required"`
-	Status        string  `json:"status" binding:"required,oneof=pending completed failed"`
-	PaymentMethod string  `json:"payment_method" binding:"required"`
-	Note          string  `json:"note"`
-	Currency      string  `json:"currency" binding:"required,len=3"`
+	Amount          float64 `json:"amount" binding:"required,gt=0"`
+	Type            string  `json:"type" binding:"required,oneof=credit debit"`
+	Category        string  `json:"category" binding:"required"`
+	CategoryIconID  int     `json:"category_icon_id" binding:"required"`
+	CategoryColorID int     `json:"category_color_id" binding:"required"`
+	Description     string  `json:"description" binding:"required"`
+	Status          string  `json:"status" binding:"required,oneof=pending completed failed"`
+	PaymentMethod   string  `json:"payment_method" binding:"required"`
+	// TransactionDate is optional — when the client omits it (or
+	// sends it as null) the service defaults to time.Now(), same as
+	// before this field existed. When present it lets the app log a
+	// transaction against a past (or, deliberately, a future) date
+	// instead of always "right now".
+	TransactionDate *time.Time `json:"transaction_date"`
+	Note            string     `json:"note"`
+	Currency        string     `json:"currency" binding:"required,len=3"`
 }
 
 // UpdateTransactionRequest uses pointers so a client can send a
@@ -22,14 +30,17 @@ type CreateTransactionRequest struct {
 // request body stays nil and is skipped, instead of overwriting
 // existing data with a zero value.
 type UpdateTransactionRequest struct {
-	Amount        *float64 `json:"amount" binding:"omitempty,gt=0"`
-	Type          *string  `json:"type" binding:"omitempty,oneof=credit debit"`
-	Category      *string  `json:"category" binding:"omitempty"`
-	Description   *string  `json:"description" binding:"omitempty"`
-	Status        *string  `json:"status" binding:"omitempty,oneof=pending completed failed"`
-	PaymentMethod *string  `json:"payment_method" binding:"omitempty"`
-	Note          *string  `json:"note"`
-	Currency      *string  `json:"currency" binding:"omitempty,len=3"`
+	Amount          *float64   `json:"amount" binding:"omitempty,gt=0"`
+	Type            *string    `json:"type" binding:"omitempty,oneof=credit debit"`
+	Category        *string    `json:"category" binding:"omitempty"`
+	CategoryIconID  *int       `json:"category_icon_id" binding:"omitempty"`
+	CategoryColorID *int       `json:"category_color_id" binding:"omitempty"`
+	Description     *string    `json:"description" binding:"omitempty"`
+	Status          *string    `json:"status" binding:"omitempty,oneof=pending completed failed"`
+	PaymentMethod   *string    `json:"payment_method" binding:"omitempty"`
+	TransactionDate *time.Time `json:"transaction_date"`
+	Note            *string    `json:"note"`
+	Currency        *string    `json:"currency" binding:"omitempty,len=3"`
 }
 
 // TransactionQuery bundles every filter/sort/pagination option
@@ -58,6 +69,8 @@ type TransactionResponse struct {
 	Amount          float64   `json:"amount"`
 	Type            string    `json:"type"`
 	Category        string    `json:"category"`
+	CategoryIconID  int       `json:"category_icon_id"`
+	CategoryColorID int       `json:"category_color_id"`
 	Description     string    `json:"description"`
 	Status          string    `json:"status"`
 	PaymentMethod   string    `json:"payment_method"`
