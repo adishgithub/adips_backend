@@ -1,0 +1,19 @@
+name: Keep backend warm
+
+# Render's free plan spins the service down after ~15 min of no
+# inbound traffic; the next request then pays a 20-50s+ cold-start
+# cost. Pinging /healthz on a schedule keeps it from ever going idle
+# long enough to sleep, without needing a paid Render plan.
+on:
+  schedule:
+    - cron: "*/10 * * * *"   # every 10 minutes
+  workflow_dispatch: {}       # allow manual runs from the Actions tab
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping /healthz
+        run: |
+          curl -fsS --max-time 60 https://adips-backend.onrender.com/healthz \
+            || echo "Ping failed (server may have been cold-starting) - not fatal"
