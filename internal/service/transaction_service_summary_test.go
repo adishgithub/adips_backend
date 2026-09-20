@@ -6,6 +6,7 @@ import (
 	"github.com/adishgithub/adips_backend/internal/dto"
 	"github.com/adishgithub/adips_backend/internal/models"
 	"github.com/adishgithub/adips_backend/internal/utils"
+	"gorm.io/gorm"
 )
 
 // fakeTransactionRepo satisfies repository.TransactionRepository and
@@ -31,6 +32,34 @@ func (f *fakeTransactionRepo) Summary(userID uint, q dto.TransactionQuery) (dto.
 	return dto.SummaryResponse{}, nil
 }
 
+// fakeAccountRepo satisfies repository.AccountRepository. The Summary
+// tests below never touch accounts, so every method is a no-op stub.
+type fakeAccountRepo struct{}
+
+func (f *fakeAccountRepo) Create(account *models.Account) error { return nil }
+func (f *fakeAccountRepo) FindByID(id uint) (*models.Account, error) {
+	return nil, nil
+}
+func (f *fakeAccountRepo) FindByUserAndID(userID, id uint) (*models.Account, error) {
+	return nil, nil
+}
+func (f *fakeAccountRepo) FindAllByUser(userID uint, includeArchived bool) ([]models.Account, error) {
+	return nil, nil
+}
+func (f *fakeAccountRepo) Update(account *models.Account) error { return nil }
+func (f *fakeAccountRepo) CountTransactions(accountID uint) (int64, error) {
+	return 0, nil
+}
+func (f *fakeAccountRepo) BalancesByUser(userID uint) (map[uint]float64, error) {
+	return nil, nil
+}
+func (f *fakeAccountRepo) BalanceByID(userID, accountID uint) (float64, error) {
+	return 0, nil
+}
+func (f *fakeAccountRepo) ClearDefaultExcept(tx *gorm.DB, userID, accountID uint) error {
+	return nil
+}
+
 func TestSummaryStatusDefaulting(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -47,7 +76,7 @@ func TestSummaryStatusDefaulting(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			repo := &fakeTransactionRepo{}
-			svc := NewTransactionService(repo)
+			svc := NewTransactionService(repo, &fakeAccountRepo{})
 
 			_, err := svc.Summary(42, dto.TransactionQuery{Status: tt.inStatus})
 			if err != nil {
@@ -67,7 +96,7 @@ func TestSummaryStatusDefaulting(t *testing.T) {
 // reach the repository untouched.
 func TestSummaryKeepsOtherFilters(t *testing.T) {
 	repo := &fakeTransactionRepo{}
-	svc := NewTransactionService(repo)
+	svc := NewTransactionService(repo, &fakeAccountRepo{})
 
 	in := dto.TransactionQuery{
 		Type:          "debit",

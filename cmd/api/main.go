@@ -97,6 +97,7 @@ func main() {
 	accountService :=
 		service.NewAccountService(
 			accountRepo,
+			db,
 		)
 
 	settingsService :=
