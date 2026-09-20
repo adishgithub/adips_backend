@@ -119,6 +119,20 @@ min_amount, max_amount, start_date, end_date, search,
 sort_by, order, page, limit
 ```
 
+**Summary status rule:** `GET /transactions/summary` counts only
+`completed` transactions when no `status` is sent (failed transactions
+never happened and pending ones have not settled). Send
+`status=pending` or `status=failed` to total those instead, or
+`status=all` to count every status. `GET /transactions` (the list) is
+unchanged and still returns all statuses by default.
+
+**Money precision:** `transactions.amount` is stored as
+`numeric(14,2)` (max `999,999,999,999.99`), so sums are exact in
+Postgres. On startup, `database.Migrate` converts an existing
+`double precision` column automatically (idempotent, logged, rounds to
+2 decimals). Back up the database before the first deploy of this
+change.
+
 `sort_by` is restricted to an allow-list
 (`transaction_date, amount, created_at, category, status`) — a
 client can't inject an arbitrary column into `ORDER BY`.

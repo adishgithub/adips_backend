@@ -54,6 +54,10 @@ func (r *transactionRepository) Delete(id uint) error {
 // applyFilters is shared by List and Summary so the "which rows count"
 // logic can never drift between the two — a summary must always
 // reflect exactly the rows the list view shows.
+//
+// One deliberate exception lives in the service layer, not here: when
+// the client sends no ?status=, the summary defaults to "completed"
+// (see withDefaultSummaryStatus) while the list shows all statuses.
 func applyFilters(db *gorm.DB, userID uint, q dto.TransactionQuery) *gorm.DB {
 	query := db.Model(&models.Transaction{}).Where("user_id = ?", userID)
 

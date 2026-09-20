@@ -173,7 +173,35 @@ func (s *transactionService) Delete(userID, txID uint) error {
 	return nil
 }
 
+// summaryStatusAll is the explicit opt-out value for ?status= on the
+// summary endpoint: it restores the old behaviour of counting every
+// status (completed + pending + failed).
+const summaryStatusAll = "all"
+
+// withDefaultSummaryStatus applies the summary's status rule:
+//
+//   - no status given -> only "completed" (money that actually moved;
+//     failed transactions never happened, pending ones haven't settled)
+//   - status=all      -> no status filter at all
+//   - anything else   -> passed through unchanged (e.g. status=pending
+//     to total up what is still outstanding)
+//
+// This deliberately lives in the summary path only. GET /transactions
+// keeps listing every status by default so users can still see failed
+// and pending rows; only the aggregate numbers are settled-only.
+func withDefaultSummaryStatus(q dto.TransactionQuery) dto.TransactionQuery {
+	switch q.Status {
+	case "":
+		q.Status = string(models.TransactionStatusCompleted)
+	case summaryStatusAll:
+		q.Status = ""
+	}
+	return q
+}
+
 func (s *transactionService) Summary(userID uint, q dto.TransactionQuery) (dto.SummaryResponse, error) {
+	q = withDefaultSummaryStatus(q)
+
 	summary, err := s.repo.Summary(userID, q)
 	if err != nil {
 		return summary, utils.ErrInternal(err)

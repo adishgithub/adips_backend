@@ -56,7 +56,7 @@ func (s TransactionStatus) Valid() bool {
 type Transaction struct {
 	gorm.Model
 	UserID   uint                 `gorm:"not null;index:idx_user_date,priority:1" json:"user_id"`
-	Amount   float64              `gorm:"not null" json:"amount"`
+	Amount   float64              `gorm:"type:numeric(14,2);not null" json:"amount"`
 	Type     TransactionDirection `gorm:"type:varchar(10);not null;index" json:"type"`
 	Category string               `gorm:"not null;index" json:"category"`
 	// CategoryIconID/CategoryColorID are a denormalized *snapshot* of

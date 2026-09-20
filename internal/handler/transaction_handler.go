@@ -127,6 +127,10 @@ func (h *TransactionHandler) Delete(c *gin.Context) {
 	utils.NoContentMsg(c, "Transaction deleted successfully")
 }
 
+// Summary — GET /api/v1/transactions/summary
+// Without ?status= only completed transactions are counted. Pass
+// status=pending|failed to total those instead, or status=all to
+// count every status.
 func (h *TransactionHandler) Summary(c *gin.Context) {
 	q := dto.TransactionQuery{
 		Type:          c.Query("type"),
