@@ -268,6 +268,10 @@ func (h *TransactionHandler) Delete(
 //	payment_method
 //	currency
 //	date range
+//
+// Phase 2 (X7): transfer legs are excluded from the totals and the
+// count by default, because moving your own money is neither income
+// nor expense. Send include_transfers=true to count them.
 func (h *TransactionHandler) Summary(
 	c *gin.Context,
 ) {
@@ -283,6 +287,9 @@ func (h *TransactionHandler) Summary(
 
 		StartDate: c.Query("start_date"),
 		EndDate:   c.Query("end_date"),
+
+		// X7: defaults to false.
+		IncludeTransfers: c.Query("include_transfers") == "true",
 	}
 
 	summary, err :=

@@ -94,10 +94,20 @@ func main() {
 			accountRepo,
 		)
 
+	// Phase 3: a balance adjustment creates a transaction, so the
+	// account service also needs the transaction repository.
 	accountService :=
 		service.NewAccountService(
 			accountRepo,
+			transactionRepo,
 			db,
+		)
+
+	// Phase 2: transfers need both repositories.
+	transferService :=
+		service.NewTransferService(
+			transactionRepo,
+			accountRepo,
 		)
 
 	settingsService :=
@@ -130,6 +140,11 @@ func main() {
 	accountHandler :=
 		handler.NewAccountHandler(
 			accountService,
+		)
+
+	transferHandler :=
+		handler.NewTransferHandler(
+			transferService,
 		)
 
 	settingsHandler :=
@@ -167,6 +182,8 @@ func main() {
 			TransactionHandler: transactionHandler,
 
 			AccountHandler: accountHandler,
+
+			TransferHandler: transferHandler,
 
 			SettingsHandler: settingsHandler,
 

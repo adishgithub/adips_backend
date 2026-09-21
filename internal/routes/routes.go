@@ -17,6 +17,9 @@ type Deps struct {
 	// Phase 1
 	AccountHandler *handler.AccountHandler
 
+	// Phase 2
+	TransferHandler *handler.TransferHandler
+
 	SettingsHandler            *handler.SettingsHandler
 	TransactionTypeHandler     *handler.TransactionTypeHandler
 	TransactionCategoryHandler *handler.TransactionCategoryHandler
@@ -83,7 +86,7 @@ func Register(
 		}
 
 		// ---------------------------------------------------------
-		// Accounts - Phase 1
+		// Accounts - Phase 1 + Phase 3
 		// ---------------------------------------------------------
 
 		accounts :=
@@ -116,6 +119,73 @@ func Register(
 			accounts.PATCH(
 				"/:id",
 				d.AccountHandler.Update,
+			)
+
+			// Phase 3: lifecycle.
+			//
+			// "/reorder" is a static path next to "/:id"; Gin resolves
+			// it correctly (transactions already does this with
+			// "/summary").
+			accounts.PATCH(
+				"/reorder",
+				d.AccountHandler.Reorder,
+			)
+
+			accounts.PATCH(
+				"/:id/archive",
+				d.AccountHandler.Archive,
+			)
+
+			accounts.PATCH(
+				"/:id/unarchive",
+				d.AccountHandler.Unarchive,
+			)
+
+			accounts.GET(
+				"/:id/delete-preview",
+				d.AccountHandler.DeletePreview,
+			)
+
+			accounts.POST(
+				"/:id/adjust",
+				d.AccountHandler.Adjust,
+			)
+
+			accounts.DELETE(
+				"/:id",
+				d.AccountHandler.Delete,
+			)
+		}
+
+		// ---------------------------------------------------------
+		// Transfers - Phase 2
+		// ---------------------------------------------------------
+
+		transfers :=
+			v1.Group(
+				"/transfers",
+				auth,
+			)
+
+		{
+			transfers.POST(
+				"",
+				d.TransferHandler.Create,
+			)
+
+			transfers.GET(
+				"/:group_id",
+				d.TransferHandler.Get,
+			)
+
+			transfers.PATCH(
+				"/:group_id",
+				d.TransferHandler.Update,
+			)
+
+			transfers.DELETE(
+				"/:group_id",
+				d.TransferHandler.Delete,
 			)
 		}
 

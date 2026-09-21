@@ -32,6 +32,19 @@ func (f *fakeTransactionRepo) Summary(userID uint, q dto.TransactionQuery) (dto.
 	return dto.SummaryResponse{}, nil
 }
 
+// Phase 2 (transfers): the Summary tests never touch transfer legs, so
+// these are no-op stubs that only keep the fake satisfying the interface.
+func (f *fakeTransactionRepo) CreatePair(debit, credit *models.Transaction) error { return nil }
+func (f *fakeTransactionRepo) FindByGroup(userID uint, groupID string) ([]models.Transaction, error) {
+	return nil, nil
+}
+func (f *fakeTransactionRepo) UpdatePair(userID uint, debit, credit *models.Transaction) error {
+	return nil
+}
+func (f *fakeTransactionRepo) DeleteByGroup(userID uint, groupID string) (int64, error) {
+	return 0, nil
+}
+
 // fakeAccountRepo satisfies repository.AccountRepository. The Summary
 // tests below never touch accounts, so every method is a no-op stub.
 type fakeAccountRepo struct{}
@@ -59,6 +72,21 @@ func (f *fakeAccountRepo) BalanceByID(userID, accountID uint) (float64, error) {
 func (f *fakeAccountRepo) ClearDefaultExcept(tx *gorm.DB, userID, accountID uint) error {
 	return nil
 }
+
+// Phase 3 (lifecycle): stubs that only keep the fake satisfying the
+// interface; the Summary tests never call them.
+func (f *fakeAccountRepo) CountActiveExcept(userID, excludeID uint) (int64, error) {
+	return 0, nil
+}
+func (f *fakeAccountRepo) SetArchived(userID, accountID uint, archived bool) error { return nil }
+func (f *fakeAccountRepo) SoftDelete(userID, accountID uint) error                 { return nil }
+func (f *fakeAccountRepo) BulkUpdateSortOrder(userID uint, items []dto.ReorderItem) error {
+	return nil
+}
+func (f *fakeAccountRepo) MergePreviewCounts(userID, sourceID, targetID uint) (int64, int64, error) {
+	return 0, 0, nil
+}
+func (f *fakeAccountRepo) MergeDelete(userID, sourceID, targetID uint) error { return nil }
 
 func TestSummaryStatusDefaulting(t *testing.T) {
 	tests := []struct {
@@ -89,6 +117,24 @@ func TestSummaryStatusDefaulting(t *testing.T) {
 				t.Errorf("user id passed to repo = %d, want 42", repo.gotSummaryUser)
 			}
 		})
+	}
+}
+
+// X7: include_transfers is decided by the handler and must reach the
+// repository untouched (default false = transfers excluded).
+func TestSummaryPassesIncludeTransfers(t *testing.T) {
+	for _, include := range []bool{false, true} {
+		repo := &fakeTransactionRepo{}
+		svc := NewTransactionService(repo, &fakeAccountRepo{})
+
+		if _, err := svc.Summary(1, dto.TransactionQuery{IncludeTransfers: include}); err != nil {
+			t.Fatalf("Summary returned error: %v", err)
+		}
+
+		if repo.gotSummaryQuery.IncludeTransfers != include {
+			t.Errorf("IncludeTransfers passed to repo = %v, want %v",
+				repo.gotSummaryQuery.IncludeTransfers, include)
+		}
 	}
 }
 

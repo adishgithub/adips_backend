@@ -74,6 +74,11 @@ type TransactionQuery struct {
 
 	Search string
 
+	// Phase 2 (X7): transfers are excluded from summary totals unless
+	// the client sends include_transfers=true. Only /transactions/summary
+	// reads this; the list endpoint always returns transfer legs.
+	IncludeTransfers bool
+
 	SortBy string
 	Order  string
 
@@ -105,8 +110,8 @@ type TransactionResponse struct {
 	Note     string `json:"note,omitempty"`
 	Currency string `json:"currency"`
 
-	// Phase 1 creates the column only.
-	// Phase 2 will populate/use it for transfers.
+	// Set on both legs of a transfer (Phase 2). Clients should route
+	// edit/delete of these rows to /transfers/:group_id (rule T4).
 	TransferGroupID *string `json:"transfer_group_id,omitempty"`
 
 	CreatedAt time.Time `json:"created_at"`

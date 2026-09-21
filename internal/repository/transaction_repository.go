@@ -29,6 +29,29 @@ type TransactionRepository interface {
 		userID uint,
 		q dto.TransactionQuery,
 	) (dto.SummaryResponse, error)
+
+	// ---------------------------------------------------------------
+	// Phase 2: transfers.
+	//
+	// A transfer is two rows sharing a transfer_group_id (D2). Every
+	// write that touches both rows lives here, inside one DB
+	// transaction, so the service layer stays free of GORM (X5/X6).
+	// ---------------------------------------------------------------
+
+	// CreatePair inserts the debit and credit leg atomically (X5).
+	CreatePair(debit, credit *models.Transaction) error
+
+	// FindByGroup returns the live legs of a transfer, scoped to the
+	// owner (A1). An empty slice means "not found".
+	FindByGroup(userID uint, groupID string) ([]models.Transaction, error)
+
+	// UpdatePair rewrites the editable fields of both legs atomically
+	// (X6).
+	UpdatePair(userID uint, debit, credit *models.Transaction) error
+
+	// DeleteByGroup soft-deletes both legs and returns how many rows
+	// were deleted (0 = not found / not yours).
+	DeleteByGroup(userID uint, groupID string) (int64, error)
 }
 
 type transactionRepository struct {
@@ -76,6 +99,116 @@ func (r *transactionRepository) Delete(
 	return r.db.
 		Delete(&models.Transaction{}, id).
 		Error
+}
+
+// CreatePair inserts both transfer legs in one DB transaction.
+//
+// X5: either both rows exist or neither does. A half-created transfer
+// would silently change one account's balance and nothing else.
+func (r *transactionRepository) CreatePair(
+	debit, credit *models.Transaction,
+) error {
+
+	return r.db.Transaction(
+		func(tx *gorm.DB) error {
+
+			if err := tx.Create(debit).Error; err != nil {
+				return err
+			}
+
+			return tx.Create(credit).Error
+		},
+	)
+}
+
+// FindByGroup loads the live legs of a transfer.
+//
+// user_id is part of the WHERE clause so another user's transfer is
+// indistinguishable from one that does not exist (A1).
+func (r *transactionRepository) FindByGroup(
+	userID uint,
+	groupID string,
+) ([]models.Transaction, error) {
+
+	var legs []models.Transaction
+
+	err := r.db.
+		Where(
+			"user_id = ? AND transfer_group_id = ?",
+			userID,
+			groupID,
+		).
+		Order("id ASC").
+		Find(&legs).
+		Error
+
+	return legs, err
+}
+
+// UpdatePair updates both legs in one DB transaction (X6).
+//
+// A map is used (not Save) so that:
+//   - empty strings such as a cleared note are really written,
+//   - only the fields a transfer may change are touched,
+//   - a leg that vanished mid-request fails loudly instead of being
+//     silently re-inserted (Save falls back to an upsert).
+func (r *transactionRepository) UpdatePair(
+	userID uint,
+	debit, credit *models.Transaction,
+) error {
+
+	return r.db.Transaction(
+		func(tx *gorm.DB) error {
+
+			for _, leg := range []*models.Transaction{debit, credit} {
+
+				result := tx.
+					Model(&models.Transaction{}).
+					Where(
+						"id = ? AND user_id = ?",
+						leg.ID,
+						userID,
+					).
+					Updates(map[string]interface{}{
+						"account_id":       leg.AccountID,
+						"amount":           leg.Amount,
+						"transaction_date": leg.TransactionDate,
+						"note":             leg.Note,
+						"currency":         leg.Currency,
+					})
+
+				if result.Error != nil {
+					return result.Error
+				}
+
+				if result.RowsAffected != 1 {
+					return gorm.ErrRecordNotFound
+				}
+			}
+
+			return nil
+		},
+	)
+}
+
+// DeleteByGroup soft-deletes both legs of a transfer.
+//
+// A single UPDATE statement is already atomic in PostgreSQL, so both
+// legs disappear together (X6) without an explicit transaction.
+func (r *transactionRepository) DeleteByGroup(
+	userID uint,
+	groupID string,
+) (int64, error) {
+
+	result := r.db.
+		Where(
+			"user_id = ? AND transfer_group_id = ?",
+			userID,
+			groupID,
+		).
+		Delete(&models.Transaction{})
+
+	return result.RowsAffected, result.Error
 }
 
 // applyFilters is shared by List and Summary.
@@ -224,11 +357,26 @@ func (r *transactionRepository) Summary(
 
 	var summary dto.SummaryResponse
 
-	row := applyFilters(
+	query := applyFilters(
 		r.db,
 		userID,
 		q,
-	).
+	)
+
+	// X7 / D3: moving your own money is neither income nor expense,
+	// so transfer legs are left out of the totals and the count unless
+	// the caller explicitly asks for them (include_transfers=true).
+	//
+	// This is done here and NOT in applyFilters on purpose: the list
+	// endpoint shares applyFilters and must keep returning transfer
+	// legs (they are real rows that affect account balances).
+	if !q.IncludeTransfers {
+		query = query.Where(
+			"transfer_group_id IS NULL",
+		)
+	}
+
+	row := query.
 		Session(&gorm.Session{}).
 		Select(`
 			COALESCE(

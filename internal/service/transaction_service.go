@@ -52,6 +52,10 @@ type TransactionService interface {
 	) (dto.SummaryResponse, error)
 }
 
+// archivedAccountReadOnlyMessage is returned whenever a change would
+// alter the balance of an archived account.
+const archivedAccountReadOnlyMessage = "This account is archived. Unarchive it before adding, changing or deleting its transactions"
+
 type transactionService struct {
 	repo        repository.TransactionRepository
 	accountRepo repository.AccountRepository
@@ -382,11 +386,37 @@ func (s *transactionService) Update(
 		)
 	}
 
-	// A12: archived accounts cannot be transaction targets.
+	// A12 (extended): an archived account is read-only.
+	//
+	// A11 demands a zero balance to archive. If its transactions could
+	// still be edited, moved out or deleted afterwards, the balance
+	// would drift away from zero on an account the dashboard no longer
+	// shows, hiding money. Unarchiving is always allowed, so the user
+	// is never stuck.
 	if account.IsArchived {
 		return nil, utils.ErrBadRequest(
-			"Archived accounts cannot receive transactions",
+			archivedAccountReadOnlyMessage,
 		)
+	}
+
+	// Moving a transaction OUT of an archived account changes that
+	// account's balance too, so the account it currently sits on
+	// must be active as well.
+	if targetAccountID != tx.AccountID {
+		current, err := s.accountRepo.FindByUserAndID(
+			userID,
+			tx.AccountID,
+		)
+
+		if err != nil {
+			return nil, utils.ErrInternal(err)
+		}
+
+		if current != nil && current.IsArchived {
+			return nil, utils.ErrBadRequest(
+				archivedAccountReadOnlyMessage,
+			)
+		}
 	}
 
 	if req.Amount != nil {
@@ -513,6 +543,23 @@ func (s *transactionService) Delete(
 	if tx.TransferGroupID != nil {
 		return utils.ErrConflict(
 			"This transaction is part of a transfer; use /transfers",
+		)
+	}
+
+	// A12 (extended): archived accounts are read-only, see Update.
+	account, err :=
+		s.accountRepo.FindByUserAndID(
+			userID,
+			tx.AccountID,
+		)
+
+	if err != nil {
+		return utils.ErrInternal(err)
+	}
+
+	if account != nil && account.IsArchived {
+		return utils.ErrBadRequest(
+			archivedAccountReadOnlyMessage,
 		)
 	}
 

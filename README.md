@@ -126,6 +126,17 @@ never happened and pending ones have not settled). Send
 `status=all` to count every status. `GET /transactions` (the list) is
 unchanged and still returns all statuses by default.
 
+**Transfers in transactions (Phase 2):** transfer legs appear in
+`GET /transactions` (they are real rows that move balances) and carry a
+`transfer_group_id`. `GET /transactions/summary` **excludes** them by
+default because moving your own money is neither income nor expense;
+send `include_transfers=true` to count them. A leg cannot be edited or
+deleted through `/transactions/:id` (409); use `/transfers/:group_id`.
+
+**Archived accounts are read-only:** creating, editing, moving or
+deleting a transaction on an archived account returns 400. Unarchive
+the account first.
+
 **Money precision:** `transactions.amount` is stored as
 `numeric(14,2)` (max `999,999,999,999.99`), so sums are exact in
 Postgres. On startup, `database.Migrate` converts an existing
@@ -136,6 +147,75 @@ change.
 `sort_by` is restricted to an allow-list
 (`transaction_date, amount, created_at, category, status`) — a
 client can't inject an arbitrary column into `ORDER BY`.
+
+### Accounts (`/api/v1/accounts`) — all require auth, all scoped to the caller
+
+| Method | Path                    | Description |
+|--------|-------------------------|-------------|
+| POST   | ``                      | Create an account. `include_in_total` defaults to `true` when omitted |
+| GET    | ``                      | List (archived hidden unless `include_archived=true`) with `current_balance` |
+| GET    | `/summary`              | Dashboard totals (active accounts only) |
+| GET    | `/:id`                  | Get one account |
+| PATCH  | `/:id`                  | Partial update (an archived account cannot become the default) |
+| PATCH  | `/reorder`              | Body `{"items":[{"id":1,"sort_order":0}]}`; one bad id fails the whole batch (400) |
+| PATCH  | `/:id/archive`          | Hide an account (idempotent). 409 if default (A6), last active (A7) or balance ≠ 0 (A11) |
+| PATCH  | `/:id/unarchive`        | Always allowed (idempotent) |
+| GET    | `/:id/delete-preview?move_to=<id>` | Read-only preview of a merge-delete |
+| DELETE | `/:id`                  | Delete. No transactions: soft delete (A8). With transactions: 409 (A9) unless `?move_transactions_to=<id>` |
+| POST   | `/:id/adjust`           | Body `{"actual_balance": 0, "note": ""}`; creates one `Balance Adjustment` transaction, or nothing if already correct |
+
+**Balances are derived, never stored:** `current_balance` = opening
+balance + completed credits − completed debits dated up to now.
+Negative balances are allowed.
+
+**Merge-delete** (`DELETE /:id?move_transactions_to=<id>`) runs in one
+DB transaction: the source's transactions move to the target, transfers
+between the two accounts are collapsed (their net effect is zero), the
+source's opening balance is added to the target's, and the source is
+soft-deleted. The sum of all balances never changes, so
+`target_balance_after = target_balance_before + source_current_balance`,
+which is exactly what `delete-preview` returns. The target must be
+active, owned by the caller and use the same currency. The source must
+not be the default account or the last active account.
+
+`delete-preview` returns `moved_transaction_count` (kept and re-pointed;
+legs of collapsed transfers are not counted), `collapsed_transfer_count`,
+`source_current_balance`, `target_balance_before`, `target_balance_after`.
+
+`DELETE` and `PATCH /reorder` answer `200` with a message and no `data`.
+
+### Transfers (`/api/v1/transfers`) — all require auth
+
+| Method | Path          | Description |
+|--------|---------------|-------------|
+| POST   | ``            | `{from_account_id, to_account_id, amount, transaction_date?, note?}` |
+| GET    | `/:group_id`  | Both legs: `{transfer_group_id, debit, credit}` |
+| PATCH  | `/:group_id`  | Change `from_account_id`, `to_account_id`, `amount`, `transaction_date`, `note` on both legs atomically |
+| DELETE | `/:group_id`  | Delete both legs |
+
+A transfer is two ordinary transactions (a debit on the source, a
+credit on the destination) sharing one `transfer_group_id`, both
+`completed`, category `Transfer` (icon 30, color 1). Rules: the two
+accounts must differ (X1), belong to the caller and be active (X2),
+share one currency (X3), and `amount` must be > 0 after rounding to 2
+decimals (X4). There is no insufficient-funds check (D5). An invalid
+`group_id` is 400; another user's transfer is 404.
+
+## Testing
+
+`go test ./...` runs the unit tests. The database integration tests
+(transfers, archive, delete, merge-delete, adjust) run the real
+repositories against real PostgreSQL and are **skipped** unless
+`TEST_DATABASE_URL` is set:
+
+```
+createdb adips_test
+TEST_DATABASE_URL="postgres://USER:PASS@localhost:5432/adips_test?sslmode=disable" \
+    go test ./internal/service/ -v
+```
+
+They **truncate every table**, so the database name must end in
+`_test` or they refuse to run. Never point them at a real database.
 
 ## Notes / follow-ups worth doing next
 

@@ -145,6 +145,226 @@ func (h *AccountHandler) Summary(c *gin.Context) {
 	)
 }
 
+// Archive - PATCH /api/v1/accounts/:id/archive
+func (h *AccountHandler) Archive(c *gin.Context) {
+	id, ok := parseAccountID(c)
+
+	if !ok {
+		return
+	}
+
+	account, err := h.service.Archive(
+		currentUserID(c),
+		id,
+	)
+
+	if err != nil {
+		utils.RespondError(c, err)
+		return
+	}
+
+	utils.Ok(
+		c,
+		"Account archived successfully",
+		account,
+	)
+}
+
+// Unarchive - PATCH /api/v1/accounts/:id/unarchive
+func (h *AccountHandler) Unarchive(c *gin.Context) {
+	id, ok := parseAccountID(c)
+
+	if !ok {
+		return
+	}
+
+	account, err := h.service.Unarchive(
+		currentUserID(c),
+		id,
+	)
+
+	if err != nil {
+		utils.RespondError(c, err)
+		return
+	}
+
+	utils.Ok(
+		c,
+		"Account unarchived successfully",
+		account,
+	)
+}
+
+// Reorder - PATCH /api/v1/accounts/reorder
+func (h *AccountHandler) Reorder(c *gin.Context) {
+	var req dto.ReorderAccountsRequest
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.BadRequest(
+			c,
+			"Invalid request body",
+			err.Error(),
+		)
+		return
+	}
+
+	if err := h.service.Reorder(
+		currentUserID(c),
+		req,
+	); err != nil {
+
+		utils.RespondError(c, err)
+		return
+	}
+
+	utils.NoContentMsg(
+		c,
+		"Accounts reordered successfully",
+	)
+}
+
+// DeletePreview - GET /api/v1/accounts/:id/delete-preview?move_to=<id>
+//
+// Read-only. The client shows this to the user and asks for
+// confirmation before calling DELETE with move_transactions_to.
+func (h *AccountHandler) DeletePreview(c *gin.Context) {
+	id, ok := parseAccountID(c)
+
+	if !ok {
+		return
+	}
+
+	moveTo, ok := parseOptionalUintQuery(c, "move_to")
+
+	if !ok {
+		return
+	}
+
+	if moveTo == nil {
+		utils.BadRequest(
+			c,
+			"move_to is required",
+			nil,
+		)
+		return
+	}
+
+	preview, err := h.service.DeletePreview(
+		currentUserID(c),
+		id,
+		*moveTo,
+	)
+
+	if err != nil {
+		utils.RespondError(c, err)
+		return
+	}
+
+	utils.Ok(
+		c,
+		"Delete preview retrieved successfully",
+		preview,
+	)
+}
+
+// Delete - DELETE /api/v1/accounts/:id[?move_transactions_to=<id>]
+func (h *AccountHandler) Delete(c *gin.Context) {
+	id, ok := parseAccountID(c)
+
+	if !ok {
+		return
+	}
+
+	moveTo, ok := parseOptionalUintQuery(c, "move_transactions_to")
+
+	if !ok {
+		return
+	}
+
+	if err := h.service.Delete(
+		currentUserID(c),
+		id,
+		moveTo,
+	); err != nil {
+
+		utils.RespondError(c, err)
+		return
+	}
+
+	utils.NoContentMsg(
+		c,
+		"Account deleted successfully",
+	)
+}
+
+// Adjust - POST /api/v1/accounts/:id/adjust
+func (h *AccountHandler) Adjust(c *gin.Context) {
+	id, ok := parseAccountID(c)
+
+	if !ok {
+		return
+	}
+
+	var req dto.AdjustAccountRequest
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.BadRequest(
+			c,
+			"Invalid request body",
+			err.Error(),
+		)
+		return
+	}
+
+	result, err := h.service.Adjust(
+		currentUserID(c),
+		id,
+		req,
+	)
+
+	if err != nil {
+		utils.RespondError(c, err)
+		return
+	}
+
+	utils.Ok(
+		c,
+		"Account balance adjusted successfully",
+		result,
+	)
+}
+
+// parseOptionalUintQuery reads an optional positive-integer query
+// parameter. (nil, true) means "not supplied"; (nil, false) means it was
+// malformed and a 400 has already been written.
+func parseOptionalUintQuery(
+	c *gin.Context,
+	key string,
+) (*uint, bool) {
+
+	raw := c.Query(key)
+
+	if raw == "" {
+		return nil, true
+	}
+
+	value, err := strconv.ParseUint(raw, 10, 64)
+
+	if err != nil || value == 0 {
+		utils.BadRequest(
+			c,
+			"Invalid "+key,
+			nil,
+		)
+
+		return nil, false
+	}
+
+	id := uint(value)
+
+	return &id, true
+}
+
 func parseAccountID(c *gin.Context) (uint, bool) {
 	id, err := strconv.ParseUint(
 		c.Param("id"),
